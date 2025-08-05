@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPS Navigation Systems (BFS) Visualization</title>
+<style>
+    body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        margin: 0;
+        background: #0a0a0a; /* Deep black background */
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    section {
+        padding: 30px;
+        background: #121212; /* Slightly lighter black */
+        border-radius: 12px;
+        box-shadow: 0 8px 16px rgba(0, 255, 0, 0.2); /* Green glow */
+        text-align: center;
+        max-width: 700px;
+    }
+
+    h2 {
+        color: #2ecc71; /* Bright green */
+        margin-bottom: 15px;
+        font-size: 28px;
+    }
+
+    p {
+        color: #a9dfbf; /* Soft greenish-white */
+        margin-bottom: 20px;
+        line-height: 1.6;
+    }
+
+    canvas {
+        border: 2px solid #2ecc71;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #1e1e2f, #14532d); /* Green-black gradient */
+        margin-bottom: 20px;
+    }
+
+    button {
+        padding: 12px 24px;
+        background-color: #2ecc71;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: bold;
+        transition: background-color 0.3s, transform 0.2s;
+    }
+
+    button:hover {
+        background-color: #27ae60;
+        transform: scale(1.05);
+    }
+
+    .sticky-note {
+        position: absolute;
+        background: #f1c40f;
+        padding: 10px;
+        border-radius: 5px;
+        box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+        font-size: 14px;
+        z-index: 10;
+        animation: fadeInOut 4s forwards;
+    }
+
+    @keyframes fadeInOut {
+        0% { opacity: 0; transform: translateY(-10px); }
+        10% { opacity: 1; transform: translateY(0); }
+        90% { opacity: 1; }
+        100% { opacity: 0; }
+    }
+</style>
+
+</head>
+<body>
+    <section id="gps-navigation">
+        <h2>GPS Navigation Systems (BFS)</h2>
+        <p>Application: GPS navigation systems use BFS to find the shortest path (in terms of road segments) between two locations in an unweighted road network, exploring all possible routes level by level.</p>
+        <canvas id="gps-navigation-canvas" width="600" height="400"></canvas>
+        <br>
+        <button id="start-bfs">Start Navigation</button>
+    </section>
+
+    <script>
+        const canvas = document.getElementById('gps-navigation-canvas');
+        const ctx = canvas.getContext('2d');
+        let startNode = null, targetNode = null;
+
+        // Define nodes (locations) with positions for a road network-like structure
+        const nodes = [
+            { id: 0, x: 300, y: 100 }, // Central location
+            { id: 1, x: 200, y: 200 }, { id: 2, x: 400, y: 200 }, // First layer
+            { id: 3, x: 150, y: 300 }, { id: 4, x: 250, y: 300 }, // Second layer from node 1
+            { id: 5, x: 350, y: 300 }, { id: 6, x: 450, y: 300 }  // Second layer from node 2
+        ];
+        const edges = [
+            [0, 1], [0, 2], // Central location to first layer
+            [1, 3], [1, 4], // Node 1 to second layer
+            [2, 5], [2, 6], // Node 2 to second layer
+            [3, 4], [4, 5], [5, 6] // Additional road connections
+        ];
+
+        function drawGraph() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            edges.forEach(edge => {
+                const [id1, id2] = edge;
+                ctx.beginPath();
+                ctx.moveTo(nodes[id1].x, nodes[id1].y);
+                ctx.lineTo(nodes[id2].x, nodes[id2].y);
+                ctx.strokeStyle = '#7f8c8d';
+                ctx.stroke();
+            });
+            nodes.forEach(node => {
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, 15, 0, 2 * Math.PI);
+                ctx.fillStyle = node.id === startNode ? '#e74c3c' : node.id === targetNode ? '#2ecc71' : '#3498db';
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.stroke();
+                ctx.fillStyle = 'white';
+                ctx.textAlign = 'center';
+                ctx.fillText(node.id, node.x, node.y + 5);
+            });
+        }
+
+        function showStickyNote(text, x, y, isEnqueue = false) {
+            const note = document.createElement('div');
+            note.className = 'sticky-note';
+            note.innerText = text;
+            // Place enqueue messages at the bottom, others near the node
+            note.style.left = `${isEnqueue ? canvas.offsetLeft + 300 : x + canvas.offsetLeft}px`;
+            note.style.top = `${isEnqueue ? canvas.offsetTop + 350 : y + canvas.offsetTop}px`;
+            document.body.appendChild(note);
+            setTimeout(() => note.remove(), 4000); // 4-second visibility for readability
+        }
+
+        function bfs(start, target) {
+            const queue = [start];
+            const visited = new Set([start]);
+            const parent = {};
+            let step = () => {
+                if (!queue.length) {
+                    showStickyNote(`No path found to destination`, 300, 350);
+                    return;
+                }
+                const current = queue.shift();
+                highlightNode(current, '#f39c12');
+                showStickyNote(`Exploring location ${current} to find destination`, nodes[current].x + 20, nodes[current].y);
+                if (current === target) {
+                    highlightPath(parent, start, target);
+                    return;
+                }
+                const neighbors = edges.filter(e => e[0] === current || e[1] === current)
+                    .map(e => e[0] === current ? e[1] : e[0]);
+                neighbors.forEach(n => {
+                    if (!visited.has(n)) {
+                        visited.add(n);
+                        queue.push(n);
+                        parent[n] = current;
+                        showStickyNote(`Enqueuing location ${n} for navigation`, 300, 350, true);
+                    }
+                });
+                setTimeout(step, 1500); // 1.5-second delay for clear animation
+            };
+            step();
+        }
+
+        function highlightNode(id, color) {
+            ctx.beginPath();
+            ctx.arc(nodes[id].x, nodes[id].y, 15, 0, 2 * Math.PI);
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.stroke();
+            ctx.fillStyle = 'white';
+            ctx.fillText(id, nodes[id].x, nodes[id].y + 5);
+        }
+
+        function highlightPath(parent, start, target) {
+            let path = [];
+            let node = target;
+            while (node !== start) {
+                path.unshift(node);
+                node = parent[node];
+            }
+            path.unshift(start);
+            path.forEach((n, i) => {
+                setTimeout(() => {
+                    highlightNode(n, '#2ecc71');
+                    if (i > 0) {
+                        const prev = path[i - 1];
+                        ctx.beginPath();
+                        ctx.moveTo(nodes[prev].x, nodes[prev].y);
+                        ctx.lineTo(nodes[n].x, nodes[n].y);
+                        ctx.strokeStyle = '#2ecc71';
+                        ctx.lineWidth = 3;
+                        ctx.stroke();
+                        ctx.lineWidth = 1;
+                        ctx.strokeStyle = '#7f8c8d';
+                    }
+                }, i * 500);
+            });
+            showStickyNote(`Shortest path found: ${path.join(' -> ')}`, 300, 350);
+        }
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left, y = e.clientY - rect.top;
+            nodes.forEach(node => {
+                if (Math.hypot(x - node.x, y - node.y) < 15) {
+                    if (!startNode) {
+                        startNode = node.id;
+                    } else if (!targetNode && node.id !== startNode) {
+                        targetNode = node.id;
+                    }
+                    drawGraph();
+                }
+            });
+        });
+
+        document.getElementById('start-bfs').addEventListener('click', () => {
+            if (startNode !== null && targetNode !== null) {
+                drawGraph();
+                bfs(startNode, targetNode);
+            } else {
+                alert('Please select a start and destination location by clicking two nodes!');
+            }
+        });
+
+        drawGraph();
+    </script>
+</body>
+</html>

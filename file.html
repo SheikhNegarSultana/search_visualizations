@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File System Traversal (DFS) Visualization</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: #0a0a0a; /* Deep black background */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        section {
+            padding: 30px;
+            background: #121212; /* Slightly lighter black for contrast */
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0, 123, 255, 0.3); /* Blue glow */
+            text-align: center;
+            max-width: 700px;
+        }
+        h2 {
+            color: #3498db; /* Bright blue */
+            margin-bottom: 15px;
+            font-size: 28px;
+        }
+        p {
+            color: #b0c4de; /* Light steel blue for readability */
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        canvas {
+            border: 2px solid #3498db;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #1e1e2f, #2c3e50); /* Blue-black gradient */
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 12px 24px;
+            background-color: #3498db;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+        button:hover {
+            background-color: #2980b9;
+            transform: scale(1.05);
+        }
+        .sticky-note {
+            position: absolute;
+            background: #f1c40f;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+            font-size: 14px;
+            z-index: 10;
+            animation: fadeInOut 4s forwards;
+        }
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(-10px); }
+            10% { opacity: 1; transform: translateY(0); }
+            90% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <section id="file-system-traversal">
+        <h2>File System Traversal (DFS)</h2>
+        <p>Application: DFS is used to traverse a file system, exploring each directory and its subdirectories or files deeply before backtracking to explore other branches.</p>
+        <canvas id="file-system-canvas" width="600" height="400"></canvas>
+        <br>
+        <button id="start-dfs">Start Traversal</button>
+    </section>
+
+    <script>
+        const canvas = document.getElementById('file-system-canvas');
+        const ctx = canvas.getContext('2d');
+        let startNode = null;
+
+        // Define nodes (folders and files) with positions for a tree-like structure
+        const nodes = [
+            { id: 0, x: 300, y: 50, type: 'folder' },  // Root directory
+            { id: 1, x: 200, y: 150, type: 'folder' }, { id: 2, x: 400, y: 150, type: 'folder' }, // First level
+            { id: 3, x: 150, y: 250, type: 'file' }, { id: 4, x: 250, y: 250, type: 'file' }, // Second level from node 1
+            { id: 5, x: 350, y: 250, type: 'file' }, { id: 6, x: 450, y: 250, type: 'file' }  // Second level from node 2
+        ];
+        const edges = [
+            [0, 1], [0, 2], // Root to first level
+            [1, 3], [1, 4], // Node 1 to second level
+            [2, 5], [2, 6]  // Node 2 to second level
+        ];
+
+        function drawGraph() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            edges.forEach(edge => {
+                const [id1, id2] = edge;
+                ctx.beginPath();
+                ctx.moveTo(nodes[id1].x, nodes[id1].y);
+                ctx.lineTo(nodes[id2].x, nodes[id2].y);
+                ctx.strokeStyle = '#7f8c8d';
+                ctx.stroke();
+            });
+            nodes.forEach(node => {
+                ctx.beginPath();
+                if (node.type === 'folder') {
+                    ctx.rect(node.x - 20, node.y - 20, 40, 40); // Folders as rectangles
+                } else {
+                    ctx.arc(node.x, node.y, 15, 0, 2 * Math.PI); // Files as circles
+                }
+                ctx.fillStyle = node.id === startNode ? '#e74c3c' : '#3498db';
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.stroke();
+                ctx.fillStyle = 'white';
+                ctx.textAlign = 'center';
+                ctx.fillText(node.id, node.x, node.y + 5);
+            });
+        }
+
+        function showStickyNote(text, x, y, isExploring = false) {
+            const note = document.createElement('div');
+            note.className = 'sticky-note';
+            note.innerText = text;
+            // Place exploring messages at the bottom, others near the node
+            note.style.left = `${isExploring ? canvas.offsetLeft + 300 : x + canvas.offsetLeft}px`;
+            note.style.top = `${isExploring ? canvas.offsetTop + 350 : y + canvas.offsetTop}px`;
+            document.body.appendChild(note);
+            setTimeout(() => note.remove(), 4000); // 4-second visibility for readability
+        }
+
+        function dfs(node, visited) {
+            visited.add(node);
+            highlightNode(node, '#f39c12');
+            showStickyNote(`Exploring ${nodes[node].type} ${node}`, 300, 350, true);
+            const neighbors = edges.filter(e => e[0] === node)
+                .map(e => e[1]); // Directed edges (parent to child)
+            neighbors.forEach(n => {
+                if (!visited.has(n)) {
+                    showStickyNote(`Entering ${nodes[n].type} ${n} from ${nodes[node].type} ${node}`, nodes[n].x + 20, nodes[n].y);
+                    setTimeout(() => dfs(n, visited), 1500); // 1.5-second delay for clear animation
+                }
+            });
+            setTimeout(() => {
+                highlightNode(node, '#2ecc71'); // Mark as fully explored
+                showStickyNote(`Finished exploring ${nodes[node].type} ${node}`, 300, 350, true);
+            }, neighbors.length * 1500 + 1000);
+        }
+
+        function highlightNode(id, color) {
+            ctx.beginPath();
+            if (nodes[id].type === 'folder') {
+                ctx.rect(nodes[id].x - 20, nodes[id].y - 20, 40, 40);
+            } else {
+                ctx.arc(nodes[id].x, nodes[id].y, 15, 0, 2 * Math.PI);
+            }
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.stroke();
+            ctx.fillStyle = 'white';
+            ctx.fillText(id, nodes[id].x, nodes[id].y + 5);
+        }
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left, y = e.clientY - rect.top;
+            nodes.forEach(node => {
+                const isFolder = node.type === 'folder';
+                const hit = isFolder
+                    ? (x >= node.x - 20 && x <= node.x + 20 && y >= node.y - 20 && y <= node.y + 20)
+                    : (Math.hypot(x - node.x, y - node.y) < 15);
+                if (hit) {
+                    startNode = node.id;
+                    drawGraph();
+                }
+            });
+        });
+
+        document.getElementById('start-dfs').addEventListener('click', () => {
+            if (startNode !== null) {
+                drawGraph();
+                dfs(startNode, new Set());
+            } else {
+                alert('Please select a starting folder or file by clicking a node!');
+            }
+        });
+
+        drawGraph();
+    </script>
+</body>
+</html>

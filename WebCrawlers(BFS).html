@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Crawlers (BFS) Visualization</title>
+<style>
+    body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        margin: 0;
+        background: #111; /* Deep black background */
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    section {
+        padding: 30px;
+        background: #1c1c1c; /* Dark gray for contrast */
+        border-radius: 12px;
+        box-shadow: 0 8px 16px rgba(255, 0, 0, 0.2); /* Red glow */
+        text-align: center;
+        max-width: 700px;
+    }
+
+    h2 {
+        color: #e74c3c; /* Vivid red */
+        margin-bottom: 15px;
+        font-size: 28px;
+    }
+
+    p {
+        color: #ccc; /* Light gray for readability */
+        margin-bottom: 20px;
+        line-height: 1.6;
+    }
+
+    canvas {
+        border: 2px solid #e74c3c;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #2c2c2c, #3c3c3c);
+        margin-bottom: 20px;
+    }
+
+    button {
+        padding: 12px 24px;
+        background-color: #e74c3c;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: bold;
+        transition: background-color 0.3s, transform 0.2s;
+    }
+
+    button:hover {
+        background-color: #c0392b;
+        transform: scale(1.05);
+    }
+
+    .sticky-note {
+        position: absolute;
+        background: #f1c40f;
+        padding: 10px;
+        border-radius: 5px;
+        box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+        font-size: 14px;
+        z-index: 10;
+        animation: fadeInOut 4s forwards;
+    }
+
+    @keyframes fadeInOut {
+        0% { opacity: 0; transform: translateY(-10px); }
+        10% { opacity: 1; transform: translateY(0); }
+        90% { opacity: 1; }
+        100% { opacity: 0; }
+    }
+</style>
+
+</head>
+<body>
+    <section id="web-crawler">
+        <h2>Web Crawlers (BFS)</h2>
+        <p>Application: Search engine web crawlers use BFS to systematically explore web pages, starting from a seed page and visiting all linked pages at the current depth before moving to the next level.</p>
+        <canvas id="web-crawler-canvas" width="600" height="400"></canvas>
+        <br>
+        <button id="start-bfs">Start Crawling</button>
+    </section>
+
+    <script>
+        const canvas = document.getElementById('web-crawler-canvas');
+        const ctx = canvas.getContext('2d');
+        let startNode = null;
+
+        // Define nodes (web pages) with positions for a tree-like structure
+        const nodes = [
+            { id: 0, x: 300, y: 50 },  // Root page
+            { id: 1, x: 200, y: 150 }, { id: 2, x: 400, y: 150 }, // First level
+            { id: 3, x: 150, y: 250 }, { id: 4, x: 250, y: 250 }, // Second level from node 1
+            { id: 5, x: 350, y: 250 }, { id: 6, x: 450, y: 250 }, // Second level from node 2
+            { id: 7, x: 100, y: 350 }, { id: 8, x: 200, y: 350 }  // Third level from node 3
+        ];
+        const edges = [
+            [0, 1], [0, 2], // Root to first level
+            [1, 3], [1, 4], // Node 1 to second level
+            [2, 5], [2, 6], // Node 2 to second level
+            [3, 7], [3, 8]  // Node 3 to third level
+        ];
+
+        function drawGraph() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            edges.forEach(edge => {
+                const [id1, id2] = edge;
+                ctx.beginPath();
+                ctx.moveTo(nodes[id1].x, nodes[id1].y);
+                ctx.lineTo(nodes[id2].x, nodes[id2].y);
+                ctx.strokeStyle = '#7f8c8d';
+                ctx.stroke();
+            });
+            nodes.forEach(node => {
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, 15, 0, 2 * Math.PI);
+                ctx.fillStyle = node.id === startNode ? '#e74c3c' : '#3498db';
+                ctx.fill();
+                ctx.fillStyle = 'white';
+                ctx.textAlign = 'center';
+                ctx.fillText(node.id, node.x, node.y + 5);
+            });
+        }
+
+        function showStickyNote(text, x, y, isEnqueue = false) {
+            const note = document.createElement('div');
+            note.className = 'sticky-note';
+            note.innerText = text;
+            // Place enqueue messages at the bottom, others near the node
+            note.style.left = `${isEnqueue ? canvas.offsetLeft + 300 : x + canvas.offsetLeft}px`;
+            note.style.top = `${isEnqueue ? canvas.offsetTop + 350 : y + canvas.offsetTop}px`;
+            document.body.appendChild(note);
+            setTimeout(() => note.remove(), 4000);
+        }
+
+        function bfs(start) {
+            const queue = [start];
+            const visited = new Set([start]);
+            let step = () => {
+                if (!queue.length) {
+                    showStickyNote(`Finished crawling all reachable pages`, 300, 350);
+                    return;
+                }
+                const current = queue.shift();
+                highlightNode(current, '#f39c12');
+                showStickyNote(`Crawling page ${current} to find linked pages`, nodes[current].x + 20, nodes[current].y);
+                const neighbors = edges.filter(e => e[0] === current || e[1] === current)
+                    .map(e => e[0] === current ? e[1] : e[0]);
+                neighbors.forEach(n => {
+                    if (!visited.has(n)) {
+                        visited.add(n);
+                        queue.push(n);
+                        showStickyNote(`Enqueuing page ${n} for crawling`, 300, 350, true);
+                    }
+                });
+                setTimeout(step, 1500);
+            };
+            step();
+        }
+
+        function highlightNode(id, color) {
+            ctx.beginPath();
+            ctx.arc(nodes[id].x, nodes[id].y, 15, 0, 2 * Math.PI);
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.fillStyle = 'white';
+            ctx.fillText(id, nodes[id].x, nodes[id].y + 5);
+        }
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left, y = e.clientY - rect.top;
+            nodes.forEach(node => {
+                if (Math.hypot(x - node.x, y - node.y) < 15) {
+                    startNode = node.id;
+                    drawGraph();
+                }
+            });
+        });
+
+        document.getElementById('start-bfs').addEventListener('click', () => {
+            if (startNode !== null) {
+                drawGraph();
+                bfs(startNode);
+            } else {
+                alert('Please select a starting page by clicking a node!');
+            }
+        });
+
+        drawGraph();
+    </script>
+</body>
+</html>

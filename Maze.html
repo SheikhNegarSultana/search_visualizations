@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maze Solving (DFS) Visualization</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: #0a0a0a; /* Deep black background */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        section {
+            padding: 30px;
+            background: #121212; /* Slightly lighter black for contrast */
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0, 123, 255, 0.3); /* Blue glow */
+            text-align: center;
+            max-width: 700px;
+        }
+        h2 {
+            color: #3498db; /* Bright blue */
+            margin-bottom: 15px;
+            font-size: 28px;
+        }
+        p {
+            color: #b0c4de; /* Light steel blue for readability */
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        canvas {
+            border: 2px solid #3498db;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #1e1e2f, #2c3e50); /* Blue-black gradient */
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 12px 24px;
+            background-color: #3498db;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+        button:hover {
+            background-color: #2980b9;
+            transform: scale(1.05);
+        }
+        .sticky-note {
+            position: absolute;
+            background: #f1c40f;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+            font-size: 14px;
+            z-index: 10;
+            animation: fadeInOut 4s forwards;
+        }
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(-10px); }
+            10% { opacity: 1; transform: translateY(0); }
+            90% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <section id="maze-solving">
+        <h2>Maze Solving (DFS)</h2>
+        <p>Application: DFS is used in maze-solving algorithms to explore paths deeply, backtracking when a dead end is reached, until the exit is found.</p>
+        <canvas id="maze-solving-canvas" width="600" height="400"></canvas>
+        <br>
+        <button id="start-dfs">Start Solving</button>
+    </section>
+
+    <script>
+        const canvas = document.getElementById('maze-solving-canvas');
+        const ctx = canvas.getContext('2d');
+        const cellSize = 40;
+        const maze = [
+            [0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
+            [0, 1, 0, 1, 0, 1, 0, 1, 1, 0],
+            [0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+            [1, 1, 0, 1, 1, 1, 0, 1, 1, 1],
+            [0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+            [0, 1, 1, 1, 0, 1, 1, 1, 1, 0],
+            [0, 0, 0, 1, 0, 0, 0, 0, 1, 0],
+            [1, 1, 0, 1, 1, 1, 0, 1, 1, 0],
+            [0, 0, 0, 0, 0, 1, 0, 0, 1, 0],
+            [0, 1, 1, 1, 0, 0, 0, 1, 1, 0]
+        ];
+        const start = [0, 0];
+        const end = [9, 9];
+
+        function drawMaze() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let i = 0; i < 10; i++) {
+                for (let j = 0; j < 10; j++) {
+                    ctx.beginPath();
+                    ctx.rect(j * cellSize, i * cellSize, cellSize, cellSize);
+                    ctx.fillStyle = maze[i][j] ? '#2c3e50' : '#3498db';
+                    ctx.fill();
+                    ctx.strokeStyle = '#fff';
+                    ctx.stroke();
+                }
+            }
+            ctx.beginPath();
+            ctx.rect(start[1] * cellSize, start[0] * cellSize, cellSize, cellSize);
+            ctx.fillStyle = '#e74c3c'; // Start in red
+            ctx.fill();
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.rect(end[1] * cellSize, end[0] * cellSize, cellSize, cellSize);
+            ctx.fillStyle = '#2ecc71'; // End in green
+            ctx.fill();
+            ctx.stroke();
+        }
+
+        function showStickyNote(text, x, y, isAction = false) {
+            const note = document.createElement('div');
+            note.className = 'sticky-note';
+            note.innerText = text;
+            // Place action messages (exploring/backtracking) at the bottom, others near the cell
+            note.style.left = `${isAction ? canvas.offsetLeft + 300 : x + canvas.offsetLeft}px`;
+            note.style.top = `${isAction ? canvas.offsetTop + 350 : y + canvas.offsetTop}px`;
+            document.body.appendChild(note);
+            setTimeout(() => note.remove(), 4000); // 4-second visibility for readability
+        }
+
+        function dfs(x, y, visited, path) {
+            if (x < 0 || x >= 10 || y < 0 || y >= 10 || visited.has(`${x},${y}`) || maze[x][y] === 1) {
+                return false;
+            }
+            visited.add(`${x},${y}`);
+            path.push([x, y]);
+            ctx.beginPath();
+            ctx.rect(y * cellSize, x * cellSize, cellSize, cellSize);
+            ctx.fillStyle = '#f39c12'; // Exploring in orange
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.stroke();
+            showStickyNote(`Exploring cell (${x},${y})`, 300, 350, true);
+            if (x === end[0] && y === end[1]) {
+                path.forEach(([px, py], i) => {
+                    setTimeout(() => {
+                        ctx.beginPath();
+                        ctx.rect(py * cellSize, px * cellSize, cellSize, cellSize);
+                        ctx.fillStyle = '#2ecc71'; // Path in green
+                        ctx.fill();
+                        ctx.stroke();
+                    }, i * 500);
+                });
+                showStickyNote(`Found the exit: Path length ${path.length}`, 300, 350);
+                return true;
+            }
+            const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]]; // Right, Down, Left, Up
+            for (let [dx, dy] of directions) {
+                if (dfs(x + dx, y + dy, visited, path)) {
+                    return true;
+                }
+            }
+            path.pop();
+            setTimeout(() => {
+                ctx.beginPath();
+                ctx.rect(y * cellSize, x * cellSize, cellSize, cellSize);
+                ctx.fillStyle = '#3498db'; // Backtrack to blue
+                ctx.fill();
+                ctx.stroke();
+                showStickyNote(`Backtracking from (${x},${y})`, 300, 350, true);
+            }, 1500); // 1.5-second delay for clear animation
+            return false;
+        }
+
+        document.getElementById('start-dfs').addEventListener('click', () => {
+            drawMaze();
+            dfs(start[0], start[1], new Set(), []);
+        });
+
+        drawMaze();
+    </script>
+</body>
+</html>
